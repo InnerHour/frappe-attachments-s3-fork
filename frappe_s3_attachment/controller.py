@@ -28,23 +28,24 @@ class S3Operations(object):
             'S3 File Attachment',
             'S3 File Attachment',
         )
+        region = (self.s3_settings_doc.region_name or "").strip()
+        client_kwargs = {
+            "region_name": region or None,
+            "config": Config(signature_version="s3v4"),
+        }
+        # Use the regional endpoint (https://s3.<region>.amazonaws.com) instead of
+        # the global s3.amazonaws.com. On the global host, presigned URLs for a
+        # bucket outside us-east-1 can fail with "the region '<region>' is wrong;
+        # expecting 'us-east-1'" (always for new buckets, until DNS settles).
+        if region:
+            client_kwargs["endpoint_url"] = "https://s3.{}.amazonaws.com".format(region)
         if (
             self.s3_settings_doc.aws_key and
             self.s3_settings_doc.aws_secret
         ):
-            self.S3_CLIENT = boto3.client(
-                's3',
-                aws_access_key_id=self.s3_settings_doc.aws_key,
-                aws_secret_access_key=self.s3_settings_doc.aws_secret,
-                region_name=self.s3_settings_doc.region_name,
-                config=Config(signature_version='s3v4')
-            )
-        else:
-            self.S3_CLIENT = boto3.client(
-                's3',
-                region_name=self.s3_settings_doc.region_name,
-                config=Config(signature_version='s3v4')
-            )
+            client_kwargs["aws_access_key_id"] = self.s3_settings_doc.aws_key
+            client_kwargs["aws_secret_access_key"] = self.s3_settings_doc.aws_secret
+        self.S3_CLIENT = boto3.client("s3", **client_kwargs)
         self.BUCKET = self.s3_settings_doc.bucket_name
         self.folder_name = self.s3_settings_doc.folder_name
 
